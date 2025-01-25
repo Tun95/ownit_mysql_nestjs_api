@@ -11,6 +11,34 @@ export class UserController {
     return this.userService.create(userData);
   }
 
+  @Post('signup')
+  async signup(@Body() userData: Partial<User>): Promise<{ token: string }> {
+    return this.userService.signup(userData);
+  }
+
+  @Post('signin')
+  async signin(
+    @Body('email') email: string,
+    @Body('password') password: string,
+  ): Promise<{ token: string }> {
+    return this.userService.signin(email, password);
+  }
+
+  @Post('admin/signup')
+  async adminSignup(
+    @Body() adminData: Partial<User>,
+  ): Promise<{ token: string }> {
+    return this.userService.adminSignup(adminData);
+  }
+
+  @Post('admin/signin')
+  async adminSignin(
+    @Body('email') email: string,
+    @Body('password') password: string,
+  ): Promise<{ token: string }> {
+    return this.userService.adminSignin(email, password);
+  }
+
   @Put(':id')
   async updateUser(
     @Param('id') id: string,

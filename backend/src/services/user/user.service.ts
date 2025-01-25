@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import db from '../../../db/knex';
 import { User } from '../../interface/user/user.interface';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import slugify from 'slugify';
+import { generateToken } from 'src/utils';
 
 @Injectable()
 export class UserService {
@@ -24,6 +25,114 @@ export class UserService {
     } catch (error) {
       throw new Error(`Failed to create user: ${error.message}`);
     }
+  }
+
+  async signup(userData: Partial<User>): Promise<{ token: string; user: any }> {
+    const hashedPassword = await bcrypt.hash(userData.password, 12);
+    const newUser = { ...userData, password: hashedPassword };
+
+    try {
+      const [user] = await db('users').insert(newUser).returning('*');
+      const token = generateToken(user);
+      return {
+        token,
+        user: {
+          id: user.id,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          image: user.image,
+          email: user.email,
+          isAdmin: user.is_admin,
+          role: user.role,
+        },
+      };
+    } catch (error) {
+      throw new Error(`Failed to create user: ${error.message}`);
+    }
+  }
+
+  async signin(
+    email: string,
+    password: string,
+  ): Promise<{ token: string; user: any }> {
+    const user = await db('users').where({ email }).first();
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const token = generateToken(user);
+    return {
+      token,
+      user: {
+        id: user.id,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        image: user.image,
+        email: user.email,
+        isAdmin: user.is_admin,
+        role: user.role,
+      },
+    };
+  }
+
+  async adminSignup(
+    adminData: Partial<User>,
+  ): Promise<{ token: string; user: any }> {
+    const hashedPassword = await bcrypt.hash(adminData.password, 12);
+    const newAdmin = { ...adminData, password: hashedPassword, is_admin: true };
+
+    try {
+      const [admin] = await db('users').insert(newAdmin).returning('*');
+      const token = generateToken(admin);
+      return {
+        token,
+        user: {
+          id: admin.id,
+          firstName: admin.first_name,
+          lastName: admin.last_name,
+          image: admin.image,
+          email: admin.email,
+          isAdmin: admin.is_admin,
+          role: admin.role,
+        },
+      };
+    } catch (error) {
+      throw new Error(`Failed to create admin: ${error.message}`);
+    }
+  }
+
+  async adminSignin(
+    email: string,
+    password: string,
+  ): Promise<{ token: string; user: any }> {
+    const admin = await db('users').where({ email, is_admin: true }).first();
+    if (!admin) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const token = generateToken(admin);
+    return {
+      token,
+      user: {
+        id: admin.id,
+        firstName: admin.first_name,
+        lastName: admin.last_name,
+        image: admin.image,
+        email: admin.email,
+        isAdmin: admin.is_admin,
+        role: admin.role,
+      },
+    };
   }
 
   async isPasswordMatch(
