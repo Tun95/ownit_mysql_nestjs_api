@@ -1,0 +1,30 @@
+export interface User {
+  id: string;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  image?: string;
+  email: string;
+  phone?: string;
+  gender?: 'male' | 'female' | 'other';
+  dob?: Date;
+  address?: string;
+  city?: string;
+  state?: string;
+  parentName?: string;
+  parentPhone?: string;
+  parentAddress?: string;
+  parentRelationship?: string;
+  slug: string;
+  is_admin: boolean;
+  is_blocked: boolean;
+  password: string;
+  role: 'user' | 'admin' | 'teacher' | 'student';
+  last_login?: Date;
+  deleted_at?: Date;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
+  accountVerificationOtp?: string;
+  accountVerificationOtpExpires?: Date;
+  isAccountVerified: boolean;
+}
