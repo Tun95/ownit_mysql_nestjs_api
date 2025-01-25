@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import db from '../../../db/knex';
 import { User } from '../../interface/user/user.interface';
 import * as bcrypt from 'bcryptjs';
@@ -28,12 +33,26 @@ export class UserService {
   }
 
   async signup(userData: Partial<User>): Promise<{ token: string; user: any }> {
-    const hashedPassword = await bcrypt.hash(userData.password, 12);
-    const newUser = { ...userData, password: hashedPassword };
-
     try {
-      const [user] = await db('users').insert(newUser).returning('*');
+      const existingUser = await db('users')
+        .where({ email: userData.email })
+        .first();
+      if (existingUser) {
+        throw new HttpException('User already exists', HttpStatus.BAD_REQUEST);
+      }
+
+      const hashedPassword = await bcrypt.hash(userData.password, 12);
+      const newUser = {
+        ...userData,
+        first_name: userData.first_name,
+        last_name: userData.last_name,
+        password: hashedPassword,
+      };
+
+      await db('users').insert(newUser);
+      const user = await db('users').where({ email: userData.email }).first();
       const token = generateToken(user);
+
       return {
         token,
         user: {
@@ -47,7 +66,13 @@ export class UserService {
         },
       };
     } catch (error) {
-      throw new Error(`Failed to create user: ${error.message}`);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        `Failed to create user: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
