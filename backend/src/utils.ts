@@ -49,3 +49,11 @@ export const validateToken = async (
     throw new UnauthorizedException('Invalid or expired token');
   }
 };
+
+export interface RequestWithUser extends Request {
+  user: {
+    id: string;
+    email: string;
+    role?: string; // Add other user properties if needed
+  };
+}
