@@ -14,6 +14,7 @@ import * as nodemailer from 'nodemailer';
 import {
   getEmailTemplate,
   getOtpEmailTemplate,
+  getPasswordResetSuccessTemplate,
   resetPasswordTemplate,
 } from 'src/template/template';
 
@@ -635,5 +636,78 @@ export class UserService {
       resetPasswordToken: null,
       resetPasswordExpires: null,
     });
+  }
+
+  // Method to find user by reset token and check expiration
+  async findUserByResetToken(hashedToken: string): Promise<User | undefined> {
+    return await db('users')
+      .where({ resetPasswordToken: hashedToken })
+      .andWhere('resetPasswordExpires', '>', new Date())
+      .first();
+  }
+
+  // Helper function to hash token (to avoid repeating code)
+  private hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  // Reset password service
+  async resetPassword(token: string, password: string): Promise<void> {
+    const hashedToken = this.hashToken(token);
+
+    // Find user by reset token
+    const user: User = await this.findUserByResetToken(hashedToken); // Removed `this.userService`
+    if (!user) {
+      throw new HttpException(
+        'Invalid token or token expired',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Check if the new password is the same as the old one
+    const isSamePassword = await bcrypt.compare(password, user.password);
+    if (isSamePassword) {
+      throw new HttpException(
+        'New password cannot be the same as the old password',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // Hash the new password and update
+    const hashedNewPassword = await bcrypt.hash(password, 10);
+    await this.updatePassword(user.id, hashedNewPassword); // Removed `this.userService`
+
+    // Send email notification
+    await this.sendPasswordResetSuccessEmail(user);
+  }
+
+  // Send Success Email (reuseable function)
+  async sendPasswordResetSuccessEmail(user: User): Promise<void> {
+    const facebook = process.env.FACEBOOK_PROFILE_LINK;
+    const instagram = process.env.INSTAGRAM_PROFILE_LINK;
+    const webName = process.env.WEB_NAME;
+    const emailContent = getPasswordResetSuccessTemplate(
+      user,
+      facebook,
+      instagram,
+      webName,
+    );
+
+    const smtpTransport = nodemailer.createTransport({
+      service: process.env.MAIL_SERVICE,
+      auth: {
+        user: process.env.EMAIL_ADDRESS,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      to: user.email,
+      from: `${webName} <${process.env.EMAIL_ADDRESS}>`,
+      subject: 'Password Reset Successful',
+      html: emailContent,
+    };
+
+    await smtpTransport.sendMail(mailOptions);
   }
 }

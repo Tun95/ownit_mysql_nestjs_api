@@ -16,6 +16,8 @@ import { User } from '../../interface/user/user.interface';
 import { AuthGuard } from 'src/common/authorization/auth.guard';
 import { AdminGuard } from 'src/common/authorization/admin.guard';
 import db from 'db/knex';
+import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 
 @Controller('users')
 export class UserController {
@@ -211,7 +213,7 @@ export class UserController {
   }
 
   //===============
-  // PASSWORD RESET
+  // PASSWORD RESET TOKEN
   //===============
   @Post('password-token')
   async createPasswordResetToken(@Body() body: { email: string }) {
@@ -244,12 +246,47 @@ export class UserController {
   //===============
   // PASSWORD UPDATE
   //===============
-  @Put('update-password/:id')
-  async updatePassword(
+  @Put(':id/reset-password')
+  async resetPassword(
     @Param('id') id: string,
-    @Body('newPassword') newPassword: string,
-  ): Promise<void> {
-    return this.userService.updatePassword(id, newPassword);
+    @Body('token') token: string,
+    @Body('password') password: string,
+  ): Promise<{ message: string }> {
+    try {
+      const hashedToken = crypto
+        .createHash('sha256')
+        .update(token)
+        .digest('hex');
+
+      const user = await this.userService.findUserByResetToken(hashedToken);
+      if (!user) {
+        throw new HttpException(
+          'Invalid token or token expired, please try again',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Step 3: Check if new password is same as old password
+      const isSamePassword = await bcrypt.compare(password, user.password);
+      if (isSamePassword) {
+        throw new HttpException(
+          'New password cannot be the same as the old password',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      await this.userService.updatePassword(id, password);
+
+      await this.userService.sendPasswordResetSuccessEmail(user);
+
+      return { message: 'Password reset successful' };
+    } catch (error) {
+      console.log(error);
+      throw new HttpException(
+        'Internal Server Error',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   //===============
