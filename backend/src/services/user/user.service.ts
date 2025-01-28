@@ -489,6 +489,86 @@ export class UserService {
   }
 
   //===============
+  // BLOCK USER
+  //===============
+  async blockUser(id: string, currentUser: User): Promise<User> {
+    try {
+      // Check if the user exists
+      const user = await db('users').where({ id }).first();
+      if (!user) {
+        throw new HttpException('User Not Found', HttpStatus.NOT_FOUND);
+      }
+
+      // Prevent users from blocking themselves
+      if (user.id === currentUser.id) {
+        throw new HttpException(
+          'Cannot block yourself',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Prevent blocking of admin users unless the requester is a super admin
+      if (user.is_admin && !currentUser.is_admin) {
+        throw new HttpException(
+          'Cannot block Admin User',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Update the user's blocked status
+      await db('users').where({ id }).update({ is_blocked: true });
+
+      return await db('users').where({ id }).first();
+    } catch (error) {
+      console.error('Error blocking user:', error.message);
+      throw new HttpException(
+        `Failed to block user: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  //===============
+  // UNBLOCK USER
+  //===============
+  async unblockUser(id: string, currentUser: User): Promise<User> {
+    try {
+      // Check if the user exists
+      const user = await db('users').where({ id }).first();
+      if (!user) {
+        throw new HttpException('User Not Found', HttpStatus.NOT_FOUND);
+      }
+
+      // Prevent users from unblocking themselves
+      if (user.id === currentUser.id) {
+        throw new HttpException(
+          'Cannot unblock yourself',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Prevent unblocking of admin users unless the requester is a super admin
+      if (user.is_admin && !currentUser.is_admin) {
+        throw new HttpException(
+          'Cannot unblock Admin User',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Update the user's blocked status
+      await db('users').where({ id }).update({ is_blocked: false });
+
+      return await db('users').where({ id }).first(); // Return the updated user
+    } catch (error) {
+      console.error('Error unblocking user:', error.message);
+      throw new HttpException(
+        `Failed to unblock user: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  //===============
   // DELETE USER
   //===============
   async deleteUser(id: string): Promise<{ message: string }> {
@@ -629,6 +709,9 @@ export class UserService {
     await smtpTransport.sendMail(mailOptions);
   }
 
+  //===============
+  // UPDATE PASSWORD
+  //===============
   async updatePassword(id: string, newPassword: string): Promise<void> {
     const hashedPassword = await bcrypt.hash(newPassword, 12);
     await db('users').where({ id }).update({

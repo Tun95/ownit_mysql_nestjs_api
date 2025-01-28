@@ -168,8 +168,8 @@ export class UserController {
   //===============
   // FETCH USER PROFILE
   //===============
-  @UseGuards(AuthGuard)
   @Get('profile')
+  @UseGuards(AuthGuard)
   async fetchUserProfile(@Request() req): Promise<User> {
     try {
       const userId = req.user.id;
@@ -185,8 +185,8 @@ export class UserController {
   //===============
   // FETCH BY ID
   //===============
-  @UseGuards(AuthGuard, AdminGuard)
   @Get(':id')
+  @UseGuards(AuthGuard, AdminGuard)
   async fetchById(@Param('id') id: string): Promise<User> {
     return this.userService.findById(id);
   }
@@ -194,8 +194,8 @@ export class UserController {
   //===============
   // FETCH BY SLUG
   //===============
-  @UseGuards(AuthGuard)
   @Get('slug/:slug')
+  @UseGuards(AuthGuard)
   async fetchBySlug(@Param('slug') slug: string): Promise<User> {
     return this.userService.findBySlug(slug);
   }
@@ -203,13 +203,35 @@ export class UserController {
   //===============
   // UPDATE USER
   //===============
-  @UseGuards(AuthGuard, AdminGuard)
   @Put(':id')
+  @UseGuards(AuthGuard, AdminGuard)
   async updateUser(
     @Param('id') id: string,
     @Body() updateData: Partial<User>,
   ): Promise<User> {
     return this.userService.updateUser(id, updateData);
+  }
+
+  //==================
+  // ADMIN BLOCK USER
+  //==================
+  @Put('block/:id')
+  @UseGuards(AuthGuard, AdminGuard)
+  async blockUser(@Param('id') id: string, @Request() req) {
+    const currentUser = req.user;
+    const updatedUser = await this.userService.blockUser(id, currentUser);
+    return { user: updatedUser, message: 'User successfully blocked' };
+  }
+
+  //==================
+  // ADMIN UNBLOCK USER
+  //==================
+  @Put('unblock/:id')
+  @UseGuards(AuthGuard, AdminGuard)
+  async unblockUser(@Param('id') id: string, @Request() req) {
+    const currentUser = req.user;
+    const updatedUser = await this.userService.unblockUser(id, currentUser);
+    return { user: updatedUser, message: 'User successfully unblocked' };
   }
 
   //===============
@@ -292,8 +314,8 @@ export class UserController {
   //===============
   // DELETE USER
   //===============
-  @UseGuards(AuthGuard, AdminGuard)
   @Delete(':id')
+  @UseGuards(AuthGuard, AdminGuard)
   async deleteUser(@Param('id') id: string): Promise<{ message: string }> {
     return this.userService.deleteUser(id);
   }
