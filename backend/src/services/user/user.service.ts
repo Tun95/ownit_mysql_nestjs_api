@@ -558,7 +558,7 @@ export class UserService {
       // Update the user's blocked status
       await db('users').where({ id }).update({ is_blocked: false });
 
-      return await db('users').where({ id }).first(); // Return the updated user
+      return await db('users').where({ id }).first();
     } catch (error) {
       console.error('Error unblocking user:', error.message);
       throw new HttpException(
